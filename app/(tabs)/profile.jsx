@@ -1,46 +1,65 @@
-import React, { useState, useEffect } from "react";
-import { View, Text, Image, TouchableOpacity, ScrollView, TextInput, StyleSheet } from "react-native";
-import { Ionicons, MaterialIcons, Feather } from "@expo/vector-icons";
+import { FontAwesome5, Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { useMusic } from "../../context/MusicContext";
 
 const Profile = () => {
-  const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [bio, setBio] = useState("Music is the language of my soul 🎧");
-  const [genres, setGenres] = useState(["Pop", "Jazz", "Lo-Fi", "Chill"]);
+  const [userId, setUserId] = useState(null);
   const router = useRouter();
+  const { stopMusic } = useMusic();
 
-  // ✅ Load user info from AsyncStorage
+
+  // Load user info from AsyncStorage
   useEffect(() => {
-    const loadUser = async () => {
-      const storedUser = await AsyncStorage.getItem("user");
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        setName(userData.name || "User");
-        setEmail(userData.email || "");
+    const loadUserData = async () => {
+      try {
+        const storedUserId = await AsyncStorage.getItem('userId') || 
+                            await AsyncStorage.getItem('userID') || 
+                            await AsyncStorage.getItem('id') ||
+                            await AsyncStorage.getItem('user_id');
+        
+        if (storedUserId) {
+          setUserId(storedUserId);
+        } else {
+          const storedUser = await AsyncStorage.getItem("user");
+          if (storedUser) {
+            const userData = JSON.parse(storedUser);
+            if (userData.id) {
+              setUserId(userData.id);
+              await AsyncStorage.setItem('userId', userData.id.toString());
+            }
+          }
+        }
+
+        const storedUser = await AsyncStorage.getItem("user");
+        
+        if (storedUser) {
+          const userData = JSON.parse(storedUser);
+          setName(userData.name || "User");
+          setEmail(userData.email || "");
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error);
       }
     };
-    loadUser();
+    
+    loadUserData();
   }, []);
 
-  // ✅ Logout function
-  const handleLogout = async () => {
-    await AsyncStorage.removeItem("user");
-    alert("Logged out successfully!");
-    router.push("/signin");
-  };
+  // Logout function
+const handleLogout = async () => {
+  await stopMusic();  // 🔥 stop the currently playing music
 
-  const [userId, setUserId] = useState(null);
+  await AsyncStorage.removeItem("user");
+  await AsyncStorage.removeItem("userId");
 
-React.useEffect(() => {
-  const loadUserId = async () => {
-    const id = await AsyncStorage.getItem('userId');
-    setUserId(id);
-  };
-  loadUserId();
-}, []);
+  alert("Logged out successfully!");
+  router.push("/signin");
+};
 
 
   return (
@@ -49,140 +68,152 @@ React.useEffect(() => {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
-      {/* Profile Info */}
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Text style={styles.title}>Profile</Text>
+          <View style={styles.titleUnderline}></View>
+        </View>
+        <View style={styles.headerIcon}>
+          <FontAwesome5 name="user" size={20} color="#6C63FF" />
+        </View>
+      </View>
+
+      {/* Profile Section */}
       <View style={styles.profileSection}>
-        <Image
-          source={{
-            uri: "https://i.pinimg.com/736x/7c/fe/d2/7cfed2f29d7cfab3c7c7c0f44f89b6b1.jpg",
-          }}
-          style={styles.profileImage}
-        />
-
-        {isEditing ? (
-          <>
-            <TextInput style={styles.input} value={name} onChangeText={setName} />
-            <TextInput style={styles.input} value={email} onChangeText={setEmail} />
-            <TextInput
-              style={[styles.input, styles.bioInput]}
-              multiline
-              value={bio}
-              onChangeText={setBio}
-            />
-          </>
-        ) : (
-          <>
-            <Text style={styles.name}>{name}</Text>
-            <Text style={styles.email}>{email}</Text>
-            <Text style={styles.bio}>{bio}</Text>
-          </>
-        )}
-
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={async () => {
-  if (isEditing) {
-    if (!userId) {
-      alert("User ID not found");
-      return;
-    }
-    try {
-      const response = await fetch(`http://192.168.1.106:3000/update/${userId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, bio }),
-      });
-      const data = await response.json();
-      if (response.ok) {
-        alert("Profile updated successfully!");
-      } else {
-        alert(data.message || "Error updating profile");
-      }
-    } catch (error) {
-      console.error("Update error:", error);
-    }
-  }
-  setIsEditing(!isEditing);
-}}
-
-
-        >
-          <Feather name={isEditing ? "check" : "edit"} size={18} color="#fff" />
-          <Text style={styles.editButtonText}>
-            {isEditing ? "Save" : "Edit Profile"}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Favorite Genres */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>🎵 Favorite Genres</Text>
-        <View style={styles.genresContainer}>
-          {genres.map((genre, index) => (
-            <View key={index} style={styles.genreTag}>
-              <Text style={styles.genreText}>{genre}</Text>
-            </View>
-          ))}
+        <View style={styles.imageContainer}>
+          <Image
+            source={{
+              uri: "https://i.pinimg.com/736x/7c/fe/d2/7cfed2f29d7cfab3c7c7c0f44f89b6b1.jpg",
+            }}
+            style={styles.profileImage}
+          />
+          <View style={styles.onlineIndicator}></View>
         </View>
+
+        <Text style={styles.name}>{name}</Text>
+        <Text style={styles.email}>{email}</Text>
       </View>
 
-      {/* Music Activity */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>📊 Music Activity</Text>
-        <View style={styles.activityContainer}>
-          <View style={styles.activityBox}>
-            <MaterialIcons name="favorite" size={24} color="#ff7675" />
-            <Text style={styles.activityText}>120 Likes</Text>
-          </View>
-          <View style={styles.activityBox}>
-            <Ionicons name="musical-notes-outline" size={24} color="#74b9ff" />
-            <Text style={styles.activityText}>8 Playlists</Text>
-          </View>
-          <View style={styles.activityBox}>
-            <Feather name="clock" size={24} color="#55efc4" />
-            <Text style={styles.activityText}>5h Listening</Text>
-          </View>
-        </View>
-      </View>
-
-      {/* ✅ Logout */}
+      {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Ionicons name="log-out-outline" size={22} color="#fff" />
+        <Ionicons name="log-out-outline" size={18} color="#fff" />
         <Text style={styles.logoutText}>Logout</Text>
       </TouchableOpacity>
     </ScrollView>
   );
 };
 
-// your existing styles (no change)
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#101010" },
-  contentContainer: { paddingVertical: 20, paddingHorizontal: 10 },
-  profileSection: { alignItems: "center", padding: 30, marginBottom: 10 },
+  container: { 
+    flex: 1, 
+    backgroundColor: "#0A0A0A" 
+  },
+  contentContainer: { 
+    paddingHorizontal: 20, 
+    paddingTop: 60,
+    paddingBottom: 30 
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 10,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#fff",
+    letterSpacing: 1,
+  },
+  titleUnderline: {
+    width: 50,
+    height: 4,
+    backgroundColor: "#6C63FF",
+    borderRadius: 2,
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  headerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(108, 99, 255, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  profileSection: { 
+    alignItems: "center", 
+    padding: 24, 
+    marginBottom: 10,
+    backgroundColor: "#1A1A1A",
+    borderRadius: 20,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#2A2A2A",
+  },
+  imageContainer: {
+    position: "relative",
+    marginBottom: 16,
+  },
   profileImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: "#ff7675",
-    marginBottom: 15,
+    borderColor: "#6C63FF",
   },
-  name: { color: "#fff", fontSize: 20, fontWeight: "bold", textAlign: "center", marginBottom: 5 },
-  email: { color: "#aaa", fontSize: 14, textAlign: "center", marginBottom: 10 },
-  bio: { color: "#ccc", fontSize: 14, marginVertical: 8, textAlign: "center", lineHeight: 20, paddingHorizontal: 10 },
-  input: { backgroundColor: "#222", color: "#fff", width: "90%", borderRadius: 8, padding: 10, marginVertical: 6, textAlign: "center", fontSize: 14 },
-  bioInput: { height: 60, textAlignVertical: "top" },
-  editButton: { flexDirection: "row", alignItems: "center", backgroundColor: "#ff7675", paddingHorizontal: 20, paddingVertical: 10, borderRadius: 20, marginTop: 15 },
-  editButtonText: { color: "#fff", fontWeight: "600", marginLeft: 6, fontSize: 14 },
-  section: { marginHorizontal: 15, marginVertical: 12 },
-  sectionTitle: { color: "#fff", fontSize: 16, fontWeight: "bold", marginBottom: 12 },
-  genresContainer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center" },
-  genreTag: { backgroundColor: "#333", paddingHorizontal: 14, paddingVertical: 6, borderRadius: 16, margin: 4 },
-  genreText: { color: "#fff", fontSize: 12 },
-  activityContainer: { flexDirection: "row", justifyContent: "space-between", gap: 8 },
-  activityBox: { alignItems: "center", backgroundColor: "#1e1e1e", padding: 12, borderRadius: 12, flex: 1, minHeight: 80, justifyContent: "center" },
-  activityText: { color: "#fff", fontSize: 12, marginTop: 6, textAlign: "center" },
-  logoutButton: { backgroundColor: "#e74c3c", flexDirection: "row", alignItems: "center", justifyContent: "center", marginHorizontal: 50, padding: 14, borderRadius: 25, marginTop: 20, marginBottom: 30 },
-  logoutText: { color: "#fff", fontWeight: "600", marginLeft: 8, fontSize: 14 },
+  onlineIndicator: {
+    position: "absolute",
+    bottom: 8,
+    right: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#4ECDC4",
+    borderWidth: 2,
+    borderColor: "#1A1A1A",
+  },
+  name: { 
+    color: "#fff", 
+    fontSize: 22, 
+    fontWeight: "bold", 
+    textAlign: "center", 
+    marginBottom: 4,
+    letterSpacing: 0.5,
+  },
+  email: { 
+    color: "#888", 
+    fontSize: 14, 
+    textAlign: "center", 
+    marginBottom: 12,
+  },
+  logoutButton: { 
+    backgroundColor: "#FF6B6B", 
+    flexDirection: "row", 
+    alignItems: "center", 
+    justifyContent: "center", 
+    marginHorizontal: 20, 
+    padding: 16, 
+    borderRadius: 16, 
+    marginTop: 24,
+    marginBottom: 10,
+    shadowColor: "#FF6B6B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  logoutText: { 
+    color: "#fff", 
+    fontWeight: "600", 
+    marginLeft: 8, 
+    fontSize: 16,
+  },
 });
 
 export default Profile;

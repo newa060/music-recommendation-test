@@ -50,7 +50,7 @@ router.post("/signin", async (req, res) => {
   user: {
     id: user._id,
     email: user.email,
-    name: user.name || "User",
+    name: user.name ,
   },
 });
 
@@ -60,15 +60,15 @@ router.post("/signin", async (req, res) => {
   }
 });
 
-// 📝 UPDATE USER PROFILE
+// UPDATE USER PROFILE
 router.put("/update/:id", async (req, res) => {
   try {
-    const { name, bio } = req.body;
+    const { name, email, bio } = req.body; // Add email here
     const userId = req.params.id;
 
     const updatedUser = await User.findByIdAndUpdate(
       userId,
-      { name, bio },
+      { name, email, bio }, // Update email too
       { new: true } // returns updated document
     );
 
@@ -81,6 +81,5 @@ router.put("/update/:id", async (req, res) => {
     res.status(500).json({ message: "Server error", error: error.message });
   }
 });
-
 
 export default router;

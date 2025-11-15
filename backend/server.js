@@ -1,26 +1,24 @@
-import express from "express";
-import mongoose from "mongoose";
+import bcrypt from "bcrypt";
 import cors from "cors";
 import dotenv from "dotenv";
-import bcrypt from "bcrypt";
+import express from "express";
+import mongoose from "mongoose";
 import User from "./models/user.js";
+import audioRoute from "./routes/audioRoute.js"; //
 import authRoutes from "./routes/authRoutes.js";
-
+import recommendRoutes from "./routes/recommendRoute.js";
 
 dotenv.config();
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/", authRoutes);
-
-
-
-// ✅ Connect to MongoDB
+app.use("/recommend", recommendRoutes);
+app.use("/api/audio", audioRoute);// ✅ Connect to MongoDB
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch((err) => console.log("❌ DB Connection Error:", err));
-
 
 
 // ✅ Signup Route
