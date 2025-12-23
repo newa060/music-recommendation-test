@@ -1,5 +1,6 @@
-import React, { createContext, useState, useEffect, useContext } from "react";
 import { Audio } from "expo-av";
+import React, { createContext, useContext, useEffect, useState } from "react";
+
 
 export const MusicContext = createContext();
 
@@ -18,7 +19,7 @@ export const MusicProvider = ({ children }) => {
         setCurrentlyPlayingId(null);
         setIsPlaying(false);
       }
-    } catch (err) {
+    } catch (err) { b
       console.error("Failed to stop music:", err);
     }
   };
@@ -80,7 +81,7 @@ export const MusicProvider = ({ children }) => {
         setCurrentlyPlayingId,
         playbackStatus,
         setPlaybackStatus,
-        isPlaying,
+        isPlaying,   
       }}
     >
       {children}

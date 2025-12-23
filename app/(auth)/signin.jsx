@@ -2,13 +2,12 @@ import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 import { Formik } from 'formik';
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Image, ScrollView, StatusBar, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { SafeAreaView } from "react-native-safe-area-context";
 import logo from "../../assets/images/aatmabeat.png";
-import validationSchema from '../../utils/authSchema';
 import { useMusic } from '../../context/MusicContext'; // make sure path is correct
-
+import validationSchema from '../../utils/authSchema';
 
 const Signup = () => {
     const router = useRouter();

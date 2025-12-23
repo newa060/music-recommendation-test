@@ -1,7 +1,7 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Formik } from "formik";
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Image,
@@ -17,7 +17,7 @@ import * as Yup from "yup";
 import logo from "../../assets/images/aatmabeat.png";
 import { useMusic } from "../../context/MusicContext"; // <--- import MusicContext
 
-  
+
 // ✅ Enhanced validation schema with better email validation
 const validationSchema = Yup.object().shape({
   email: Yup.string()
@@ -56,7 +56,7 @@ const Signup = () => {
 
     setIsLoading(true);
     try {
-      const response = await fetch("http://192.168.18.240/signup", {
+      const respose =await fetch("http://192.168.18.240/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(values),
@@ -348,7 +348,7 @@ const styles = {
     position: 'relative',
   },
   passwordInput: {
-    paddingRight: 50,
+    paddingRight: 50, 
   },
   eyeIcon: {
     position: 'absolute',

@@ -1,7 +1,6 @@
 import { Feather, FontAwesome5, Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { Audio } from "expo-av";
-import { useFocusEffect, useRouter } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -18,6 +17,7 @@ import {
   View
 } from "react-native";
 import { useMusic } from "../../context/MusicContext";
+
 
 const { width, height } = Dimensions.get("window");
 
@@ -695,10 +695,10 @@ const Home = () => {
     setResult(null);
 
     try {
-      const res = await fetch(
+       const res = await fetch(
         `http://192.168.18.240:3000/recommend?song=${encodeURIComponent(searchText)}`
       );
-      
+
       if (!res.ok) throw new Error(`Server error: ${res.status}`);
       
       const data = await res.json();

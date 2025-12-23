@@ -17,6 +17,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import logo from "../assets/images/aatmabeat.png";
 import validationSchema from "../utils/authSchema";
 
+
 const Signup = () => {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
