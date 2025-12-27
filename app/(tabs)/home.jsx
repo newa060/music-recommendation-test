@@ -18,10 +18,9 @@ import {
 } from "react-native";
 import { useMusic } from "../../context/MusicContext";
 
-
 const { width, height } = Dimensions.get("window");
 
-// Custom Slider Component
+// Custom Slider Component (unchanged)
 const CustomSlider = ({ value, minimumValue, maximumValue, onValueChange, minimumTrackTintColor, maximumTrackTintColor, thumbTintColor, style }) => {
   const [sliderWidth, setSliderWidth] = useState(width - 120);
   const [isSeeking, setIsSeeking] = useState(false);
@@ -35,7 +34,6 @@ const CustomSlider = ({ value, minimumValue, maximumValue, onValueChange, minimu
     const newValue = (x / sliderWidth) * (maximumValue - minimumValue) + minimumValue;
     setIsSeeking(true);
     onValueChange(Math.max(minimumValue, Math.min(maximumValue, newValue)));
-    // Reset seeking state after a short delay
     setTimeout(() => setIsSeeking(false), 100);
   };
 
@@ -78,7 +76,131 @@ const CustomSlider = ({ value, minimumValue, maximumValue, onValueChange, minimu
   );
 };
 
-// Animated Song Card Component
+// Compact Recently Played Item Component
+const RecentlyPlayedItem = ({ item, index, onPress, onPlay, isCurrentlyPlaying }) => {
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.delay(index * 80),
+      Animated.parallel([
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 500,
+          easing: Easing.out(Easing.cubic),
+          useNativeDriver: true,
+        }),
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 500,
+          useNativeDriver: true,
+        }),
+      ]),
+    ]).start();
+  }, []);
+
+  const handleCardPress = () => {
+    onPress(item);
+  };
+
+  const handlePlayPress = (e) => {
+    e.stopPropagation();
+    onPlay(item);
+  };
+
+  const formatTimeAgo = (dateString) => {
+    const playedAt = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - playedAt;
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 60) {
+      return `${diffMins} min ago`;
+    } else if (diffHours < 24) {
+      return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    } else {
+      return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+    }
+  };
+
+  return (
+    <TouchableOpacity onPress={handleCardPress} activeOpacity={0.8}>
+      <Animated.View style={[
+        styles.recentlyPlayedItem,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateX: slideAnim }],
+        }
+      ]}>
+        {/* Album Art */}
+        <View style={styles.recentAlbumArt}>
+          <View style={[
+            styles.albumArtCircle,
+            isCurrentlyPlaying && styles.playingAlbumArt
+          ]}>
+            <Ionicons 
+              name={isCurrentlyPlaying ? "musical-notes" : "musical-note"} 
+              size={20} 
+              color={isCurrentlyPlaying ? "#6C63FF" : "#888"} 
+            />
+          </View>
+          {isCurrentlyPlaying && (
+            <View style={styles.nowPlayingPulse} />
+          )}
+        </View>
+
+        {/* Song Info */}
+        <View style={styles.recentItemInfo}>
+          <View style={styles.recentTitleRow}>
+            <Text style={[
+              styles.recentItemTitle,
+              isCurrentlyPlaying && styles.nowPlayingTitle
+            ]} numberOfLines={1}>
+              {item.title}
+            </Text>
+            {isCurrentlyPlaying && (
+              <View style={styles.liveIndicator}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>LIVE</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.recentItemArtist} numberOfLines={1}>
+            {item.artist || "Unknown Artist"}
+          </Text>
+          <Text style={styles.recentItemTime}>
+            {item.playedAt ? formatTimeAgo(item.playedAt) : "Recently"}
+          </Text>
+        </View>
+
+        {/* Play Button */}
+        <TouchableOpacity 
+          style={[
+            styles.recentPlayButton,
+            isCurrentlyPlaying && styles.recentPlayingButton
+          ]} 
+          onPress={handlePlayPress}
+        >
+          <Ionicons 
+            name={isCurrentlyPlaying ? "pause" : "play"} 
+            size={16} 
+            color="#fff" 
+          />
+        </TouchableOpacity>
+
+        {/* More Options */}
+        <TouchableOpacity style={styles.recentMoreButton}>
+          <Ionicons name="ellipsis-vertical" size={16} color="#888" />
+        </TouchableOpacity>
+      </Animated.View>
+    </TouchableOpacity>
+  );
+};
+
+// Animated Song Card Component (unchanged)
 const AnimatedSongCard = ({ 
   item, 
   index, 
@@ -255,7 +377,7 @@ const AnimatedSongCard = ({
   );
 };
 
-// Full Screen Music Player Component
+// Full Screen Music Player Component (unchanged)
 const FullScreenPlayer = ({ 
   visible, 
   song, 
@@ -399,7 +521,7 @@ const FullScreenPlayer = ({
 };
 
 // Animated Section Header
-const AnimatedSectionHeader = ({ title, icon, delay = 0 }) => {
+const AnimatedSectionHeader = ({ title, icon, delay = 0, showSeeAll = false, onSeeAll }) => {
   const slideAnim = useRef(new Animated.Value(-50)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -432,15 +554,23 @@ const AnimatedSectionHeader = ({ title, icon, delay = 0 }) => {
         },
       ]}
     >
-      <Text style={styles.sectionHeaderText}>
-        {icon} {title}
-      </Text>
+      <View style={styles.sectionHeaderRow}>
+        <Text style={styles.sectionHeaderText}>
+          {icon} {title}
+        </Text>
+        {showSeeAll && (
+          <TouchableOpacity style={styles.seeAllButton} onPress={onSeeAll}>
+            <Text style={styles.seeAllText}>See all</Text>
+            <Ionicons name="chevron-forward" size={16} color="#6C63FF" />
+          </TouchableOpacity>
+        )}
+      </View>
       <View style={styles.headerUnderline} />
     </Animated.View>
   );
 };
 
-// Exit Confirmation Modal
+// Exit Confirmation Modal (unchanged)
 const ExitConfirmationModal = ({ visible, onConfirm, onCancel }) => {
   const slideAnim = useRef(new Animated.Value(300)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -528,7 +658,6 @@ const Home = () => {
   const [recentlyPlayed, setRecentlyPlayed] = useState([]);
   const [fullScreenPlayerVisible, setFullScreenPlayerVisible] = useState(false);
   const [currentSong, setCurrentSong] = useState(null);
-  const [isSeeking, setIsSeeking] = useState(false);
   const [showExitModal, setShowExitModal] = useState(false);
   const router = useRouter();
 
@@ -537,9 +666,7 @@ const Home = () => {
     playSound, 
     stopMusic, 
     currentlyPlayingId, 
-    playbackStatus, 
-    setPlaybackStatus,
-    isPlaying 
+    playbackStatus 
   } = useMusic();
 
   // Animation values
@@ -552,6 +679,8 @@ const Home = () => {
   const resultsScaleAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    // Load recently played from storage (if needed)
+    // For now, initialize empty
     setRecentlyPlayed([]);
   }, []);
 
@@ -563,10 +692,16 @@ const Home = () => {
   }, []);
 
   const saveToRecentlyPlayed = (song) => {
+    const songWithMetadata = {
+      ...song,
+      artist: song.artist || "Unknown Artist",
+      playedAt: new Date().toISOString(),
+    };
+    
     const newRecentlyPlayed = [
-      song,
+      songWithMetadata,
       ...recentlyPlayed.filter(item => item.filename !== song.filename)
-    ].slice(0, 5);
+    ].slice(0, 8); // Keep last 8 songs (compact version)
     setRecentlyPlayed(newRecentlyPlayed);
   };
 
@@ -644,7 +779,13 @@ const Home = () => {
     // Auto-play when opening full screen
     if (currentlyPlayingId !== song.filename) {
       playSound(song);
+      saveToRecentlyPlayed(song);
     }
+  };
+
+  const handleRecentlyPlayedPress = (song) => {
+    setCurrentSong(song);
+    setFullScreenPlayerVisible(true);
   };
 
   const handleFullScreenPlayPause = async () => {
@@ -657,19 +798,16 @@ const Home = () => {
   const handleSeek = async (value) => {
     // Seek functionality should be implemented in MusicContext
     console.log("Seek to:", value);
-    // This would require adding seek functionality to MusicContext
   };
 
   const handleSkipForward = async () => {
     // Skip forward functionality should be implemented in MusicContext
     console.log("Skip forward");
-    // This would require adding skip functionality to MusicContext
   };
 
   const handleSkipBackward = async () => {
     // Skip backward functionality should be implemented in MusicContext
     console.log("Skip backward");
-    // This would require adding skip functionality to MusicContext
   };
 
   const handleCloseFullScreen = () => {
@@ -695,7 +833,7 @@ const Home = () => {
     setResult(null);
 
     try {
-       const res = await fetch(
+      const res = await fetch(
         `http://192.168.18.240:3000/recommend?song=${encodeURIComponent(searchText)}`
       );
 
@@ -764,6 +902,11 @@ const Home = () => {
     setShowExitModal(false);
   };
 
+  const handleSeeAllRecentlyPlayed = () => {
+    // Optional: Navigate to full recently played screen
+    console.log("Navigate to full recently played list");
+  };
+
   // Simple back button handler - shows exit confirmation
   const handleBackPress = () => {
     if (result) {
@@ -773,34 +916,32 @@ const Home = () => {
     }
   };
 
-const isSongPlaying = (song) => {
-  if (!song || !song.filename) return false; // <-- safe check
-  return currentlyPlayingId === song.filename;
-};
+  const isSongPlaying = (song) => {
+    if (!song || !song.filename) return false;
+    return currentlyPlayingId === song.filename;
+  };
 
   const renderSong = ({ item, index }) => (
-  item ? (
-    <AnimatedSongCard
+    item ? (
+      <AnimatedSongCard
+        item={item}
+        index={index}
+        musicWaveAnim={musicWaveAnim}
+        isCurrentlyPlaying={isSongPlaying(item)}
+        playSound={playSound}
+        onPlay={handlePlayWithHistory}
+        onCardPress={handleCardPress}
+      />
+    ) : null
+  );
+
+  const renderRecentlyPlayedItem = ({ item, index }) => (
+    <RecentlyPlayedItem
       item={item}
       index={index}
-      musicWaveAnim={musicWaveAnim}
-      isCurrentlyPlaying={isSongPlaying(item)}
-      playSound={playSound}
-      onPlay={playSound}
-      onCardPress={handleCardPress}
-    />
-  ) : null
-);
-
-  const renderRecentlyPlayed = ({ item, index }) => (
-    <AnimatedSongCard 
-      item={item} 
-      index={index} 
-      musicWaveAnim={musicWaveAnim}
-      isCurrentlyPlaying={isSongPlaying(item)}
-      playSound={playSound}
+      onPress={handleRecentlyPlayedPress}
       onPlay={handlePlayWithHistory}
-      onCardPress={handleCardPress}
+      isCurrentlyPlaying={isSongPlaying(item)}
     />
   );
 
@@ -891,18 +1032,36 @@ const isSongPlaying = (song) => {
           </Animated.View>
         </Animated.View>
 
-        {/* Recently Played Section */}
+        {/* Recently Played Section - Compact Vertical List */}
         {!result && recentlyPlayed.length > 0 && (
-          <Animated.View style={[styles.recentlyPlayedSection, { opacity: fadeAnim }]}>
-            <AnimatedSectionHeader title="Recently Played" icon="🕒" delay={300} />
+          <View style={styles.recentlyPlayedSection}>
+            <AnimatedSectionHeader 
+              title="Recently Played" 
+              icon="🕒" 
+              delay={200}
+              showSeeAll={recentlyPlayed.length > 4}
+              onSeeAll={handleSeeAllRecentlyPlayed}
+            />
             <FlatList
-              data={recentlyPlayed}
-              keyExtractor={(item, index) => `recent-${index}`}
-              renderItem={renderRecentlyPlayed}
+              data={recentlyPlayed.slice(0, 4)} // Show only 4 items initially
+              keyExtractor={(item, index) => `recent-${item.filename}-${index}`}
+              renderItem={renderRecentlyPlayedItem}
               scrollEnabled={false}
               showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.recentlyPlayedList}
             />
-          </Animated.View>
+            {recentlyPlayed.length > 4 && (
+              <TouchableOpacity 
+                style={styles.showMoreButton}
+                onPress={handleSeeAllRecentlyPlayed}
+              >
+                <Text style={styles.showMoreText}>
+                  Show {recentlyPlayed.length - 4} more
+                </Text>
+                <Ionicons name="chevron-down" size={16} color="#6C63FF" />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         {/* Results Section */}
@@ -928,7 +1087,7 @@ const isSongPlaying = (song) => {
                       musicWaveAnim={musicWaveAnim}
                       isCurrentlyPlaying={isSongPlaying(result.searched_song)}
                       playSound={playSound}
-                      onPlay={playSound}
+                      onPlay={handlePlayWithHistory}
                       onCardPress={handleCardPress}
                       isFeatured={true}
                     />
@@ -1003,9 +1162,7 @@ const isSongPlaying = (song) => {
 
 export default Home;
 
-// ... keep all your existing styles exactly the same ...
 const styles = StyleSheet.create({
-  // ... ALL YOUR EXISTING STYLES REMAIN UNCHANGED ...
   container: {
     flex: 1,
     backgroundColor: "#0A0A0A",
@@ -1022,65 +1179,65 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 40,
+    marginBottom: 25,
   },
   headerContent: {
     flex: 1,
   },
   titleContainer: {
-    marginBottom: 12,
+    marginBottom: 10,
   },
   title: {
-    fontSize: 42,
+    fontSize: 38,
     fontWeight: "bold",
     color: "#fff",
-    letterSpacing: 1.5,
+    letterSpacing: 1.2,
     textShadowColor: "rgba(108, 99, 255, 0.3)",
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 8,
+    textShadowOffset: { width: 0, height: 3 },
+    textShadowRadius: 6,
   },
   titleUnderline: {
-    width: 80,
-    height: 4,
+    width: 70,
+    height: 3,
     backgroundColor: "#6C63FF",
     borderRadius: 2,
-    marginTop: 8,
+    marginTop: 6,
     transformOrigin: 'left',
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#bbb",
-    letterSpacing: 0.5,
-    lineHeight: 22,
+    letterSpacing: 0.4,
+    lineHeight: 20,
   },
   exitButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 107, 107, 0.1)",
-    borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 107, 107, 0.3)",
     marginTop: 8,
   },
   exitButtonText: {
     color: "#FF6B6B",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     marginLeft: 4,
   },
   backButtonContainer: {
     alignSelf: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 15,
   },
   backButton: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(42, 42, 42, 0.9)",
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: "#333",
     shadowColor: "#000",
@@ -1090,12 +1247,12 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     color: "#fff",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
-    marginLeft: 6,
+    marginLeft: 5,
   },
   searchSection: {
-    marginBottom: 30,
+    marginBottom: 25,
   },
   searchContainer: {
     flexDirection: "row",
@@ -1106,49 +1263,49 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(26, 26, 26, 0.9)",
-    borderRadius: 20,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderWidth: 1,
     borderColor: "#333",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowRadius: 6,
+    elevation: 4,
   },
   searchIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     padding: 0,
     fontWeight: "500",
   },
   faceButton: {
     backgroundColor: "#FF6B6B",
-    borderRadius: 20,
-    padding: 16,
-    marginLeft: 12,
+    borderRadius: 16,
+    padding: 14,
+    marginLeft: 10,
     shadowColor: "#FF6B6B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  searchBtn: {
-    marginTop: 16,
-    backgroundColor: "#6C63FF",
-    borderRadius: 20,
-    paddingVertical: 16,
-    alignItems: "center",
-    shadowColor: "#6C63FF",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 6,
+  },
+  searchBtn: {
+    marginTop: 14,
+    backgroundColor: "#6C63FF",
+    borderRadius: 16,
+    paddingVertical: 14,
+    alignItems: "center",
+    shadowColor: "#6C63FF",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    elevation: 5,
   },
   searchBtnLoading: {
     opacity: 0.8,
@@ -1161,41 +1318,188 @@ const styles = StyleSheet.create({
     color: "#fff",
     marginLeft: 8,
     fontWeight: "600",
+    fontSize: 15,
   },
   searchBtnText: {
     color: "#fff",
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: "700",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
+  // Recently Played Section Styles - Compact
   recentlyPlayedSection: {
-    marginBottom: 30,
-  },
-  resultSection: {
-    marginTop: 10,
+    marginBottom: 25,
   },
   sectionHeader: {
-    marginBottom: 20,
-    marginTop: 10,
+    marginBottom: 15,
   },
-  sectionHeaderText: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#fff",
-    letterSpacing: 0.5,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
+  sectionHeaderText: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+    letterSpacing: 0.4,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  seeAllText: {
+    color: '#6C63FF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 2,
+  },
   headerUnderline: {
-    width: 60,
-    height: 3,
+    width: 50,
+    height: 2,
     backgroundColor: "#6C63FF",
+    borderRadius: 1,
+  },
+  recentlyPlayedList: {
+    paddingBottom: 8,
+  },
+  recentlyPlayedItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(26, 26, 26, 0.9)',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  recentAlbumArt: {
+    position: 'relative',
+    marginRight: 12,
+  },
+  albumArtCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(108, 99, 255, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(108, 99, 255, 0.3)',
+  },
+  playingAlbumArt: {
+    borderColor: '#6C63FF',
+    backgroundColor: 'rgba(108, 99, 255, 0.2)',
+  },
+  nowPlayingPulse: {
+    position: 'absolute',
+    top: -2,
+    left: -2,
+    right: -2,
+    bottom: -2,
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: '#6C63FF',
+    opacity: 0.5,
+  },
+  recentItemInfo: {
+    flex: 1,
+  },
+  recentTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  recentItemTitle: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  nowPlayingTitle: {
+    color: '#6C63FF',
+  },
+  liveIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.1)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+    marginLeft: 8,
+  },
+  liveDot: {
+    width: 4,
+    height: 4,
     borderRadius: 2,
+    backgroundColor: '#FF6B6B',
+    marginRight: 3,
+  },
+  liveText: {
+    color: '#FF6B6B',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
+  recentItemArtist: {
+    color: '#888',
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  recentItemTime: {
+    color: '#666',
+    fontSize: 10,
+    fontWeight: '500',
+  },
+  recentPlayButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1DB954',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  recentPlayingButton: {
+    backgroundColor: '#FF6B6B',
+  },
+  recentMoreButton: {
+    padding: 6,
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    marginTop: 5,
+  },
+  showMoreText: {
+    color: '#6C63FF',
+    fontSize: 13,
+    fontWeight: '600',
+    marginRight: 4,
+  },
+  resultSection: {
+    marginTop: 5,
   },
   featuredCard: {
     backgroundColor: "rgba(108, 99, 255, 0.15)",
-    borderRadius: 20,
-    padding: 24,
-    marginBottom: 24,
+    borderRadius: 18,
+    padding: 20,
+    marginBottom: 20,
     borderWidth: 2,
     borderColor: "rgba(108, 99, 255, 0.5)",
     overflow: "hidden",
@@ -1203,19 +1507,19 @@ const styles = StyleSheet.create({
   },
   glowEffect: {
     position: "absolute",
-    top: -20,
-    left: -20,
-    right: -20,
-    bottom: -20,
+    top: -15,
+    left: -15,
+    right: -15,
+    bottom: -15,
     backgroundColor: "#6C63FF",
-    borderRadius: 30,
+    borderRadius: 25,
     opacity: 0.3,
   },
   songCard: {
     backgroundColor: "rgba(26, 26, 26, 0.9)",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 12,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: "#333",
     shadowColor: "#000",
@@ -1228,7 +1532,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 16,
+    marginBottom: 14,
   },
   songInfo: {
     flex: 1,
@@ -1237,18 +1541,18 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 6,
   },
   featuredTitle: {
     color: "#fff",
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "bold",
     flex: 1,
-    marginRight: 12,
+    marginRight: 10,
   },
   songTitle: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "bold",
     marginBottom: 4,
   },
@@ -1256,17 +1560,17 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(255, 215, 0, 0.2)",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "rgba(255, 215, 0, 0.5)",
   },
   featuredBadgeText: {
     color: "#FFD700",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "bold",
-    marginLeft: 4,
+    marginLeft: 3,
   },
   songMeta: {
     flexDirection: "row",
@@ -1277,57 +1581,57 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(108, 99, 255, 0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginRight: 8,
-    marginBottom: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginRight: 6,
+    marginBottom: 3,
   },
   similarityTag: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "rgba(29, 185, 84, 0.1)",
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginBottom: 4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginBottom: 3,
   },
   songLang: {
     color: "#6C63FF",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    marginLeft: 4,
+    marginLeft: 3,
   },
   songSim: {
     color: "#1DB954",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
-    marginLeft: 4,
+    marginLeft: 3,
   },
   musicWave: {
     flexDirection: "row",
     alignItems: "flex-end",
-    height: 25,
-    marginLeft: 12,
+    height: 22,
+    marginLeft: 10,
     paddingBottom: 2,
   },
   waveBar: {
-    width: 3,
-    marginHorizontal: 1.5,
-    borderRadius: 2,
+    width: 2.5,
+    marginHorizontal: 1.2,
+    borderRadius: 1.5,
   },
   playButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: "#1DB954",
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     shadowColor: "#1DB954",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowRadius: 3,
+    elevation: 2,
   },
   playingButton: {
     backgroundColor: "#FF6B6B",
@@ -1338,79 +1642,79 @@ const styles = StyleSheet.create({
   playText: {
     color: "#fff",
     fontWeight: "bold",
-    fontSize: 14,
-    marginLeft: 6,
+    fontSize: 13,
+    marginLeft: 5,
   },
   recommendationsContainer: {
-    marginTop: 8,
+    marginTop: 6,
   },
   noResultsContainer: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 40,
+    paddingVertical: 50,
+    paddingHorizontal: 30,
   },
   noResultsTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#fff",
-    marginTop: 20,
-    marginBottom: 12,
+    marginTop: 18,
+    marginBottom: 10,
     textAlign: "center",
   },
   noResultsText: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#888",
     textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 24,
+    lineHeight: 20,
+    marginBottom: 20,
   },
   tryAgainButton: {
     backgroundColor: "#6C63FF",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
   },
   tryAgainText: {
     color: "#fff",
     fontWeight: "600",
-    fontSize: 16,
+    fontSize: 14,
   },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 80,
-    paddingHorizontal: 40,
+    paddingVertical: 60,
+    paddingHorizontal: 30,
   },
   emptyStateIcon: {
     position: "relative",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   pulseCircle: {
     position: "absolute",
-    top: -10,
-    left: -10,
-    right: -10,
-    bottom: -10,
+    top: -8,
+    left: -8,
+    right: -8,
+    bottom: -8,
     backgroundColor: "rgba(108, 99, 255, 0.1)",
-    borderRadius: 50,
+    borderRadius: 44,
     borderWidth: 2,
     borderColor: "rgba(108, 99, 255, 0.3)",
   },
   emptyStateTitle: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: "bold",
     color: "#fff",
-    marginBottom: 12,
+    marginBottom: 10,
     textAlign: "center",
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#888",
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  // Full Screen Player Styles
+  // Full Screen Player Styles (unchanged)
   fullScreenPlayer: {
     position: 'absolute',
     top: 0,

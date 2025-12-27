@@ -17,10 +17,10 @@ IMG_SIZE = (224, 224)
 BATCH_SIZE = 32
 
 # Phase 1 (freeze) epochs
-FREEZE_EPOCHS = 15
+FREEZE_EPOCHS = 20
 
 # Phase 2 (fine-tune) epochs
-EPOCHS = 100  # <-- This is Phase 2 epochs
+EPOCHS = 150  # <-- This is Phase 2 epochs
 
 VAL_SPLIT = 0.1
 SEED = 42

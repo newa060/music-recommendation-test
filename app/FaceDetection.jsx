@@ -9,7 +9,8 @@ import {
   ScrollView,
   StatusBar,
   StyleSheet,
-  Text, TouchableOpacity,
+  Text,
+  TouchableOpacity,
   View
 } from "react-native";
 import { useMusic } from "../context/MusicContext";
@@ -23,7 +24,6 @@ export default function FaceDetection() {
   const [loading, setLoading] = useState(false);
   const [emotion, setEmotion] = useState(null);
   const [songs, setSongs] = useState([]);
-  const [playerVisible, setPlayerVisible] = useState(false);
   const [cameraVisible, setCameraVisible] = useState(false);
   const [hasPermission, setHasPermission] = useState(null);
   const [isCameraReady, setIsCameraReady] = useState(false);
@@ -32,8 +32,10 @@ export default function FaceDetection() {
     playSound, 
     currentlyPlayingId, 
     isPlaying,
-    playbackStatus,
-    stopMusic 
+    stopMusic,
+    pauseMusic,
+    resumeMusic,
+    playbackStatus
   } = useMusic();
 
   // Check camera permission
@@ -42,6 +44,16 @@ export default function FaceDetection() {
       setHasPermission(permission.granted);
     }
   }, [permission]);
+
+  // Debug logging for audio state
+  useEffect(() => {
+    console.log("🎵 FaceDetection - Audio State:", {
+      currentlyPlayingId,
+      isPlaying,
+      songsCount: songs.length,
+      emotion
+    });
+  }, [currentlyPlayingId, isPlaying, songs, emotion]);
 
   const handleScanFace = async () => {
     // Check permission first
@@ -62,8 +74,14 @@ export default function FaceDetection() {
       setEmotion(null);
       setSongs([]);
       
-      // Stop any playing music
+      // IMPORTANT: Force stop any playing music
+      console.log("🛑 Stopping all music before scanning...");
       await stopMusic();
+      
+      // Wait a bit to ensure audio is stopped
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      console.log("✅ Music stopped, showing camera...");
       
       // Show camera for scanning
       setCameraVisible(true);
@@ -92,6 +110,8 @@ export default function FaceDetection() {
       // Generate a random session ID
       const sessionId = Date.now().toString();
       
+      console.log("🌐 Calling Flask API...");
+      
       // Call Flask API
       const response = await fetch("http://192.168.18.240:5000/api/working-scan", {
         method: "POST",
@@ -112,20 +132,37 @@ export default function FaceDetection() {
       
       setEmotion(data.emotion);
       
-      // Shuffle songs for variety
-      if (data.songs) {
-        const shuffledSongs = [...data.songs].sort(() => Math.random() - 0.5);
+      // Process songs from API response
+      if (data.songs && Array.isArray(data.songs)) {
+        // Add unique IDs if not present
+        const processedSongs = data.songs.map((song, index) => ({
+          ...song,
+          id: song.id || `face-${sessionId}-${index}`,
+          // Ensure filename has .mp3 extension if not present
+          filename: song.filename?.endsWith('.mp3') ? song.filename : `${song.filename}.mp3`,
+          // Add source identifier
+          source: 'face-detection'
+        }));
+        
+        console.log(`✅ Processed ${processedSongs.length} songs`);
+        
+        // Shuffle songs for variety
+        const shuffledSongs = [...processedSongs].sort(() => Math.random() - 0.5);
         setSongs(shuffledSongs);
+        
+        Alert.alert(
+          "Mood Detected! 🎭",
+          `Your emotion: ${data.emotion}\n\n` +
+          `Found ${data.songs.length} matching songs\n\n` +
+          `Click PLAY to listen`
+        );
       } else {
         setSongs([]);
+        Alert.alert(
+          "No Songs Found",
+          "Could not find matching songs for your mood. Please try again."
+        );
       }
-      
-      Alert.alert(
-        "Mood Detected! 🎭",
-        `Your emotion: ${data.emotion}\n\n` +
-        `Found ${data.songs?.length || 0} matching songs\n\n` +
-        `Click PLAY to listen`
-      );
       
     } catch (err) {
       console.error("❌ Scan error:", err);
@@ -137,38 +174,44 @@ export default function FaceDetection() {
           "Camera is not ready. Please try again.",
           [{ text: "OK", onPress: () => setCameraVisible(false) }]
         );
+      } else if (err.message.includes("Network request failed")) {
+        Alert.alert(
+          "Connection Error",
+          "Cannot connect to the server. Please check your internet connection and try again."
+        );
       } else {
         Alert.alert(
           "Scan Failed",
-          "Could not scan face. Using demo mode."
+          "Could not scan face. Please try again."
         );
-        // Fallback to demo data
-        setEmotion("happy");
-        const demoData = [
-          { id: "1", title: "45. - Golden Band", artist: "Demo Artist", score: 0.95, emotion: "happy", filename: "45._-_Golden_Band.mp3" },
-          { id: "2", title: "Happy Song 2", artist: "Demo Artist 2", score: 0.88, emotion: "happy", filename: "test_song2.mp3" },
-          { id: "3", title: "Joyful Melody", artist: "Demo Artist 3", score: 0.92, emotion: "happy", filename: "test_song3.mp3" },
-        ];
-        const shuffledDemo = [...demoData].sort(() => Math.random() - 0.5);
-        setSongs(shuffledDemo);
       }
+      
+      // Clear any previous data on failure
+      setEmotion(null);
+      setSongs([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handlePlaySong = (song) => {
+  const handlePlaySong = async (song) => {
     if (!song.filename) {
       Alert.alert("No Audio", "Song has no audio file");
       return;
     }
     
-    console.log(`▶️ Playing: ${song.filename}`);
-    playSound(song);
+    console.log(`🎵 Attempting to play: ${song.filename}`);
+    console.log(`📊 Currently playing ID: ${currentlyPlayingId}`);
+    console.log(`🎮 Is playing: ${isPlaying}`);
+    
+    // Play the song
+    await playSound(song);
   };
 
   const closeCamera = () => {
+    console.log("📷 Closing camera");
     setCameraVisible(false);
+    setLoading(false);
   };
 
   // Permission handling
@@ -266,6 +309,15 @@ export default function FaceDetection() {
               // Quick test without camera
               try {
                 setLoading(true);
+                setEmotion(null);
+                setSongs([]);
+                
+                // Stop any playing music first
+                await stopMusic();
+                await new Promise(resolve => setTimeout(resolve, 300));
+                
+                console.log("🧪 Running quick test...");
+                
                 const response = await fetch("http://192.168.18.240:5000/api/working-scan", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -275,17 +327,30 @@ export default function FaceDetection() {
                 const data = await response.json();
                 if (data.success) {
                   setEmotion(data.emotion);
-                  const shuffledSongs = [...data.songs].sort(() => Math.random() - 0.5);
-                  setSongs(shuffledSongs);
-                  Alert.alert("Test Success", `Got ${data.songs?.length || 0} songs`);
+                  
+                  if (data.songs && Array.isArray(data.songs)) {
+                    const sessionId = Date.now().toString();
+                    const processedSongs = data.songs.map((song, index) => ({
+                      ...song,
+                      id: song.id || `test-${sessionId}-${index}`,
+                      filename: song.filename?.endsWith('.mp3') ? song.filename : `${song.filename}.mp3`,
+                      source: 'test'
+                    }));
+                    const shuffledSongs = [...processedSongs].sort(() => Math.random() - 0.5);
+                    setSongs(shuffledSongs);
+                    Alert.alert("Test Success", `Got ${data.songs.length} songs`);
+                  }
+                } else {
+                  Alert.alert("Test Failed", "Server returned an error");
                 }
               } catch (err) {
-                Alert.alert("Test Failed", "Cannot connect to Flask");
+                console.error("Test error:", err);
+                Alert.alert("Connection Error", "Cannot connect to Flask server");
               } finally {
                 setLoading(false);
               }
             }}
-            disabled={loading}
+            disabled={loading || cameraVisible}
           >
             <Text style={styles.testText}>QUICK TEST</Text>
           </TouchableOpacity>
@@ -299,7 +364,11 @@ export default function FaceDetection() {
             <View style={styles.emotionIcon}>
               <Text style={styles.emotionEmoji}>
                 {emotion === 'happy' ? '😊' : 
-                 emotion === 'sad' ? '😢' : '😐'}
+                 emotion === 'sad' ? '😢' : 
+                 emotion === 'angry' ? '😠' :
+                 emotion === 'surprise' ? '😲' :
+                 emotion === 'fear' ? '😨' :
+                 emotion === 'disgust' ? '🤢' : '😐'}
               </Text>
             </View>
           </View>
@@ -309,27 +378,37 @@ export default function FaceDetection() {
         {loading && !cameraVisible ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#1DB954" />
-            <Text style={styles.loadingText}>Getting songs...</Text>
+            <Text style={styles.loadingText}>Analyzing mood and getting songs...</Text>
           </View>
         ) : songs.length > 0 ? (
           <ScrollView style={styles.songsList}>
             <Text style={styles.songsTitle}>RECOMMENDED SONGS ({songs.length})</Text>
             {songs.map((song, index) => (
               <View 
-                key={song.id || index}
+                key={song.id || `song-${index}`}
                 style={[
                   styles.songCard,
-                  currentlyPlayingId === song.filename && isPlaying && styles.playingCard
+                  currentlyPlayingId === song.filename && styles.playingCard
                 ]}
               >
                 <View style={styles.songInfo}>
-                  <Text style={styles.songTitle} numberOfLines={1}>{song.title}</Text>
-                  <Text style={styles.songArtist} numberOfLines={1}>{song.artist || "Unknown"}</Text>
+                  <Text style={styles.songTitle} numberOfLines={1}>
+                    {song.title || `Song ${index + 1}`}
+                  </Text>
+                  <Text style={styles.songArtist} numberOfLines={1}>
+                    {song.artist || "Unknown Artist"}
+                  </Text>
                   <View style={styles.songMeta}>
-                    <Text style={styles.songScore}>Match: {song.score}</Text>
+                    <Text style={styles.songScore}>
+                      Match: {(song.score || 0).toFixed(2)}
+                    </Text>
                     <Text style={styles.songEmoji}>
                       {song.emotion === 'happy' ? '😊' : 
-                       song.emotion === 'sad' ? '😢' : '😐'}
+                       song.emotion === 'sad' ? '😢' : 
+                       song.emotion === 'angry' ? '😠' :
+                       song.emotion === 'surprise' ? '😲' :
+                       song.emotion === 'fear' ? '😨' :
+                       song.emotion === 'disgust' ? '🤢' : '😐'}
                     </Text>
                   </View>
                 </View>
@@ -337,7 +416,7 @@ export default function FaceDetection() {
                 <TouchableOpacity 
                   style={[
                     styles.playButton,
-                    currentlyPlayingId === song.filename && isPlaying && styles.playingButton
+                    currentlyPlayingId === song.filename && styles.playingButton
                   ]}
                   onPress={() => handlePlaySong(song)}
                 >
@@ -358,7 +437,7 @@ export default function FaceDetection() {
             <Ionicons name="musical-notes" size={80} color="#333" />
             <Text style={styles.emptyTitle}>No Songs Yet</Text>
             <Text style={styles.emptyDescription}>
-              Scan your face to get personalized music recommendations
+              Scan your face to get personalized music recommendations based on your mood
             </Text>
             <Text style={styles.emptySubtext}>
               Your camera will open when you click "SCAN FACE"
@@ -384,7 +463,7 @@ export default function FaceDetection() {
           <Text style={styles.scanNote}>
             {cameraVisible 
               ? "Camera is open - Look at the camera" 
-              : "Click to open camera and scan"}
+              : "Click to open camera and scan your face"}
           </Text>
         </View>
       </View>
